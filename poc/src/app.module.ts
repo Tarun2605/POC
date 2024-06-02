@@ -5,6 +5,8 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
+import { PetsModule } from './pet/pets.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
@@ -12,11 +14,20 @@ import { CommentsModule } from './comments/comments.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    TypeOrmModule.forRoot({
+      type: 'mongodb',
+      url: process.env.DATABASE_URL,
+      database: 'nest',
+      useNewUrlParser: true,
+      autoLoadEntities: true,
+      synchronize: true,
+    }),
     MongooseModule.forRoot(process.env.DATABASE_URL),
     PostsModule,
     CommentsModule,
+    PetsModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
