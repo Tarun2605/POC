@@ -63,22 +63,28 @@ export abstract class BaseService<T> {
             throw new Error((error as Error).message || 'Failed to find entries');
         }
     }
-    async update(id: string, updateDto: any): Promise<UpdateResult> {
+    async update(id: string, updateDto: any): Promise<T> {
         try {
             this.logger.log(`Updating entry with id: ${id}`);
-            return await this.repository.update(id, updateDto);
+            const updatedDocument = await this.repository.findOneAndUpdate(
+                { "_id": new ObjectId(id) },
+                { $set: updateDto },
+                { returnDocument: 'after' }
+            );
+            // Assuming 'T' is compatible with 'Document', you can cast the result to 'T'
+            return updatedDocument as T;
         } catch (error) {
             this.logger.error('Error updating entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to update entry');
         }
     }
-    // async delete(id: string): Promise<void> {
-    //     try {
-    //         this.logger.log(`Deleting entry with id: ${id}`);
-    //         await this.repository.delete(id);
-    //     } catch (error) {
-    //         this.logger.error('Error deleting entry', JSON.stringify(error));
-    //         throw new Error((error as Error).message || 'Failed to delete entry');
-    //     }
-    // }
+    async remove(id: string): Promise<void> {
+        try {
+            this.logger.log(`Deleting entry with id: ${id}`);
+            await this.repository.delete(id);
+        } catch (error) {
+            this.logger.error('Error deleting entry', JSON.stringify(error));
+            throw new Error((error as Error).message || 'Failed to delete entry');
+        }
+    }
 } 

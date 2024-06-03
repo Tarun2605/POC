@@ -8,7 +8,7 @@ export interface IBaseService<T> {
     findByIds(uuid: string[]): Promise<T[]>;
     create(createDto: any, ...extraArgs: any[]): Promise<T>;
     update(uuid: string, updateDto: any, ...extraArgs: any[]): Promise<T>;
-    // remove(uuid: string): Promise<void>;
+    remove(uuid: string): Promise<void>;
 }
 
 @Controller()
@@ -88,8 +88,8 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
         }
     }
     // update(uuid: string, updateDto: any): Promise<T>;
-    @Put('update/:uuid')
-    async update(uuid: string, @Body() updateDto: U, ...extraArgs: any[]): Promise<T> {
+    @Put(':uuid')
+    async update(@Param('uuid') uuid: string, @Body() updateDto: U, ...extraArgs: any[]): Promise<T> {
         try {
             this.logger.log(`Updating entry with uuid: ${uuid}`);
             return await this.service.update(uuid, updateDto, ...extraArgs);
@@ -102,17 +102,17 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
         }
     }
     // remove(uuid: string): Promise<void>;
-    // @Delete('delete/:uuid')
-    // async remove(uuid: string): Promise<void> {
-    //     try {
-    //         this.logger.log(`Deleting entry with uuid: ${uuid}`);
-    //         await this.service.remove(uuid);
-    //     } catch (error) {
-    //         this.logger.error('Error deleting entry', JSON.stringify(error));
-    //         throw new HttpException(
-    //             (error as Error).message || 'Failed to delete entry',
-    //             HttpStatus.INTERNAL_SERVER_ERROR,
-    //         );
-    //     }
-    // }
+    @Delete(':uuid')
+    async remove(@Param('uuid') uuid: string): Promise<void> {
+        try {
+            this.logger.log(`Deleting entry with uuid: ${uuid}`);
+            await this.service.remove(uuid);
+        } catch (error) {
+            this.logger.error('Error deleting entry', JSON.stringify(error));
+            throw new HttpException(
+                (error as Error).message || 'Failed to delete entry',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
 }
