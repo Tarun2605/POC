@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { MongoRepository, UpdateResult } from 'typeorm';
-
+import { ObjectId } from 'mongodb';
 
 // interface BaseSchema {
 //     id: number;
@@ -38,7 +38,7 @@ export abstract class BaseService<T> {
     async findOne(id: string): Promise<T> {
         try {
             this.logger.log(`Finding entry with id: ${id}`);
-            return await this.repository.findOneBy({ id });
+            return await this.repository.findOne({where: {_id: new ObjectId(id)}});
         } catch (error) {
             this.logger.error('Error finding entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to find entry');
@@ -56,21 +56,22 @@ export abstract class BaseService<T> {
     async findByIds(ids: string[]): Promise<T[]> {
         try {
             this.logger.log(`Finding entries with ids: ${JSON.stringify(ids)}`);
-            return await this.repository.find({ where: { id: { $in: ids } } });
+            const idsObject = ids.map(id => new ObjectId(id));
+            return await this.repository.find({ where: { _id: { $in: idsObject } } });
         } catch (error) {
             this.logger.error('Error finding entries', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to find entries');
         }
     }
-    // async update(id: string, updateDto: any): Promise<UpdateResult> {
-    //     try {
-    //         this.logger.log(`Updating entry with id: ${id}`);
-    //         return await this.repository.update(id, updateDto);
-    //     } catch (error) {
-    //         this.logger.error('Error updating entry', JSON.stringify(error));
-    //         throw new Error((error as Error).message || 'Failed to update entry');
-    //     }
-    // }
+    async update(id: string, updateDto: any): Promise<UpdateResult> {
+        try {
+            this.logger.log(`Updating entry with id: ${id}`);
+            return await this.repository.update(id, updateDto);
+        } catch (error) {
+            this.logger.error('Error updating entry', JSON.stringify(error));
+            throw new Error((error as Error).message || 'Failed to update entry');
+        }
+    }
     // async delete(id: string): Promise<void> {
     //     try {
     //         this.logger.log(`Deleting entry with id: ${id}`);

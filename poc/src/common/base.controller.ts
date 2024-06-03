@@ -7,7 +7,7 @@ export interface IBaseService<T> {
     // findByUuid(uuid: string): Promise<T>;
     findByIds(uuid: string[]): Promise<T[]>;
     create(createDto: any, ...extraArgs: any[]): Promise<T>;
-    // update(uuid: string, updateDto: any, ...extraArgs: any[]): Promise<T>;
+    update(uuid: string, updateDto: any, ...extraArgs: any[]): Promise<T>;
     // remove(uuid: string): Promise<void>;
 }
 
@@ -87,20 +87,20 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
             );
         }
     }
-    // // update(uuid: string, updateDto: any): Promise<T>;
-    // @Put('update/:uuid')
-    // async update(uuid: string, @Body() updateDto: U, ...extraArgs: any[]): Promise<T> {
-    //     try {
-    //         this.logger.log(`Updating entry with uuid: ${uuid}`);
-    //         return await this.service.update(uuid, updateDto, ...extraArgs);
-    //     } catch (error) {
-    //         this.logger.error('Error updating entry', JSON.stringify(error));
-    //         throw new HttpException(
-    //             (error as Error).message || 'Failed to update entry',
-    //             HttpStatus.INTERNAL_SERVER_ERROR,
-    //         );
-    //     }
-    // }
+    // update(uuid: string, updateDto: any): Promise<T>;
+    @Put('update/:uuid')
+    async update(uuid: string, @Body() updateDto: U, ...extraArgs: any[]): Promise<T> {
+        try {
+            this.logger.log(`Updating entry with uuid: ${uuid}`);
+            return await this.service.update(uuid, updateDto, ...extraArgs);
+        } catch (error) {
+            this.logger.error('Error updating entry', JSON.stringify(error));
+            throw new HttpException(
+                (error as Error).message || 'Failed to update entry',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
     // remove(uuid: string): Promise<void>;
     // @Delete('delete/:uuid')
     // async remove(uuid: string): Promise<void> {
