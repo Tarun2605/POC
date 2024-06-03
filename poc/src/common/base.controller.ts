@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Post, Put, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Post, Put, Query, Req } from "@nestjs/common";
 
 
 export interface IBaseService<T> {
@@ -32,11 +32,24 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
         }
     }
     // findAll(options: any): Promise<[T[], number]>;
-    @Get('findAll')
-    async findAll(@Body() options: any): Promise<[T[], number]> {
+    @Get()
+    async findAll(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 10,
+        @Query('sortBy') sortBy: string = 'id',
+        @Query('order') order: 'ASC' | 'DESC' = 'ASC',
+        @Query('searchBy') searchBy: string,
+    ): Promise<{ data: any[]; total: number; }> {
         try {
-            this.logger.log(`Finding all entries: ${JSON.stringify(options)}`);
-            return await this.service.findAll(options);
+            // this.logger.log(`Finding all entries: ${JSON.stringify(options)}`);
+            const [data, total] = await this.service.findAll({
+                limit,
+                page,
+                sortBy,
+                order,
+                searchBy
+            });
+            return { data, total };
         } catch (error) {
             this.logger.error('Error finding all entries', JSON.stringify(error));
             throw new HttpException(
@@ -47,7 +60,7 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
     }
     // findOne(id: number): Promise<T>;
     @Get(':id')
-    async findOne(@Param('id') id : String): Promise<T> {
+    async findOne(@Param('id') id: String): Promise<T> {
         try {
             this.logger.log(`Finding entry with id: ${id}`);
             return await this.service.findOne(id);
@@ -75,10 +88,11 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
     // }
     // // findByIds(uuid: string[]): Promise<T[]>;
     @Post('ids')
-    async findByIds(@Body() uuids: string[]): Promise<T[]> {
+    async findByIds(@Query('ids') uuids): Promise<T | T[]> {
         try {
-            this.logger.log(`Finding entries with ids: ${uuids['uuids']}`);
-            return await this.service.findByIds(uuids['uuids']);
+            const arr = uuids.split(',').map(id => id.trim());
+            this.logger.log(`Finding entries with ids: ${JSON.stringify(arr)}`);
+            return await this.service.findByIds(arr);
         } catch (error) {
             this.logger.error('Error finding entries', JSON.stringify(error));
             throw new HttpException(

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { MongoRepository, UpdateResult } from 'typeorm';
+import { FindOptionsOrder, FindOptionsWhere, MongoRepository, UpdateResult } from 'typeorm';
 import { ObjectId } from 'mongodb';
+import { PaginationOptions } from "./type/pagination.class";
 
 // interface BaseSchema {
 //     id: number;
@@ -26,10 +27,20 @@ export abstract class BaseService<T> {
             throw new Error((error as Error).message || 'Failed to create entry');
         }
     }
-    async findAll(options: any): Promise<[T[], number]> {
+    async findAll(options: PaginationOptions): Promise<[T[], number]> {
         try {
             this.logger.log(`Finding all entries: ${JSON.stringify(options)}`);
-            return await this.repository.findAndCount(options);
+            const { limit = 10, page = 1, sortBy = 'id', order = 'ASC', searchBy = {} } = options;
+            // const whereCondtion = { isDeleted: false, ...searchBy }
+            const whereCondtion = { ...searchBy };
+            // return await this.repository.findAndCount(options);
+            const [item, total] = await this.repository.findAndCount({
+                skip: (page - 1) * limit,
+                take: +(limit),
+                order: { [sortBy as keyof T]: order } as FindOptionsOrder<T>,
+                where: whereCondtion as FindOptionsWhere<T>,
+            })
+            return [item, total];
         } catch (error) {
             this.logger.error('Error finding all entries', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to find all entries');
@@ -38,7 +49,7 @@ export abstract class BaseService<T> {
     async findOne(id: string): Promise<T> {
         try {
             this.logger.log(`Finding entry with id: ${id}`);
-            return await this.repository.findOne({where: {_id: new ObjectId(id)}});
+            return await this.repository.findOne({ where: { _id: new ObjectId(id) } });
         } catch (error) {
             this.logger.error('Error finding entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to find entry');
@@ -65,14 +76,17 @@ export abstract class BaseService<T> {
     }
     async update(id: string, updateDto: any): Promise<T> {
         try {
-            this.logger.log(`Updating entry with id: ${id}`);
-            const updatedDocument = await this.repository.findOneAndUpdate(
-                { "_id": new ObjectId(id) },
-                { $set: updateDto },
-                { returnDocument: 'after' }
-            );
-            // Assuming 'T' is compatible with 'Document', you can cast the result to 'T'
-            return updatedDocument as T;
+            let data = await this.findOne(id);
+            this.repository.merge(data, updateDto);
+            return await this.repository.save(data);
+            // this.logger.log(`Updating entry with id: ${id}`);
+            // const updatedDocument = await this.repository.findOneAndUpdate(
+            //     { "_id": new ObjectId(id) },
+            //     { $set: updateDto },
+            //     { returnDocument: 'after' }
+            // );
+            // // Assuming 'T' is compatible with 'Document', you can cast the result to 'T'
+            // return updatedDocument as T;
         } catch (error) {
             this.logger.error('Error updating entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to update entry');
@@ -80,9 +94,10 @@ export abstract class BaseService<T> {
     }
     async remove(id: string): Promise<void> {
         try {
-            this.logger.log(`Deleting entry with id: ${id}`);
-            await this.repository.delete(id);
-        } catch (error) {
+            let data = await this.findOne(id);
+            data["isDeleted"] = true;
+            await this.repository.save(data);
+            } catch (error) {
             this.logger.error('Error deleting entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to delete entry');
         }
