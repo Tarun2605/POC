@@ -7,6 +7,9 @@ import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 import { PetsModule } from './pet/pets.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { OwnerModule } from './owner/owner.module';
+import { YtPostModule } from './yt-post/ys-post.module';
+import { YtCommentModule } from './yt-comment/yt-comment.module';
 
 @Module({
   imports: [
@@ -25,7 +28,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     MongooseModule.forRoot(process.env.DATABASE_URL),
     PostsModule,
     CommentsModule,
-    PetsModule
+    PetsModule,
+    OwnerModule,
+    YtPostModule,
+    YtCommentModule
   ],
   controllers: [AppController],
   providers: [AppService],

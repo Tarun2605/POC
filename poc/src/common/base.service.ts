@@ -49,54 +49,50 @@ export abstract class BaseService<T> {
     async findOne(id: string): Promise<T> {
         try {
             this.logger.log(`Finding entry with id: ${id}`);
-            return await this.repository.findOne({ where: { _id: new ObjectId(id) } });
+            const item= await this.repository.findOne({ where: { _id: new ObjectId(id) } });
+            return item;
         } catch (error) {
             this.logger.error('Error finding entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to find entry');
         }
     }
-    // async findByUuid(uuid: string): Promise<T> {
-    //     try {
-    //         this.logger.log(`Finding entry with uuid: ${uuid}`);
-    //         return await this.repository.findOneBy({ uuid });
-    //     } catch (error) {
-    //         this.logger.error('Error finding entry', JSON.stringify(error));
-    //         throw new Error((error as Error).message || 'Failed to find entry');
-    //     }
-    // }
-    async findByIds(ids: string[]): Promise<T[]> {
+    async findByIds(ids: string[]): Promise<[T[], string[]]> {
         try {
             this.logger.log(`Finding entries with ids: ${JSON.stringify(ids)}`);
             const idsObject = ids.map(id => new ObjectId(id));
-            return await this.repository.find({ where: { _id: { $in: idsObject } } });
+            const found = await this.repository.find({ where: { _id: { $in: idsObject } } });
+            const foundIds = found.map(item => item['id'].toString());
+            const notfound = ids.filter(id => !foundIds.includes(id));
+            return [found, notfound];
         } catch (error) {
             this.logger.error('Error finding entries', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to find entries');
         }
     }
-    async update(id: string, updateDto: any): Promise<T> {
+    async update(id: string, updateDto: any, extraArgs: any): Promise<T> {
         try {
+            this.logger.log(`Reached here`);
             let data = await this.findOne(id);
-            this.repository.merge(data, updateDto);
+            if (!data){
+                return null
+            }
+            this.logger.log(`Updating entry: ${JSON.stringify(data)}`);
             return await this.repository.save(data);
-            // this.logger.log(`Updating entry with id: ${id}`);
-            // const updatedDocument = await this.repository.findOneAndUpdate(
-            //     { "_id": new ObjectId(id) },
-            //     { $set: updateDto },
-            //     { returnDocument: 'after' }
-            // );
-            // // Assuming 'T' is compatible with 'Document', you can cast the result to 'T'
-            // return updatedDocument as T;
+            
         } catch (error) {
             this.logger.error('Error updating entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to update entry');
         }
     }
-    async remove(id: string): Promise<void> {
+    async remove(id: string): Promise<Boolean> {
         try {
             let data = await this.findOne(id);
+            if (!data){
+                return null;
+            }
             data["isDeleted"] = true;
             await this.repository.save(data);
+            return true;
             } catch (error) {
             this.logger.error('Error deleting entry', JSON.stringify(error));
             throw new Error((error as Error).message || 'Failed to delete entry');

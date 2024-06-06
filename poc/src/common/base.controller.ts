@@ -1,37 +1,33 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Post, Put, Query, Req } from "@nestjs/common";
-
+import { Body, Controller, Delete, Get, HttpStatus, Logger, Param, Post, Put, Query, Req, Res } from '@nestjs/common';
+import { Response } from 'express';
 
 export interface IBaseService<T> {
     findAll(options: any): Promise<[T[], number]>;
-    findOne(id: String): Promise<T>;
-    // findByUuid(uuid: string): Promise<T>;
-    findByIds(uuid: string[]): Promise<T[]>;
+    findOne(id: string): Promise<T>;
+    findByIds(ids: string[]): Promise<[T[], string[]]>;
     create(createDto: any, ...extraArgs: any[]): Promise<T>;
-    update(uuid: string, updateDto: any, ...extraArgs: any[]): Promise<T>;
-    remove(uuid: string): Promise<void>;
+    update(id: string, updateDto: any, ...extraArgs: any[]): Promise<T>;
+    remove(id: string): Promise<Boolean>;
 }
 
 @Controller()
 export class BaseController<S extends IBaseService<T>, C, U, T> {
     protected readonly logger = new Logger(BaseController.name);
 
-    constructor(protected service: S) {
-    }
+    constructor(protected service: S) {}
 
     @Post()
-    async create(@Body() createDto: C, @Req() req: any, ...extraArgs: any[]): Promise<T> {
+    async create(@Body() createDto: C, @Req() req: any, @Res() res: Response, ...extraArgs: any[]): Promise<void> {
         try {
             this.logger.log(`Creating entry: ${JSON.stringify(createDto)}`);
-            return await this.service.create(createDto, ...extraArgs);
+            const result = await this.service.create(createDto, ...extraArgs);
+            res.status(HttpStatus.CREATED).json(result);
         } catch (error) {
             this.logger.error('Error creating entry', JSON.stringify(error));
-            throw new HttpException(
-                (error as Error).message || 'Failed to create entry',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to create entry' });
         }
     }
-    // findAll(options: any): Promise<[T[], number]>;
+
     @Get()
     async findAll(
         @Query('page') page: number = 1,
@@ -39,9 +35,9 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
         @Query('sortBy') sortBy: string = 'id',
         @Query('order') order: 'ASC' | 'DESC' = 'ASC',
         @Query('searchBy') searchBy: string,
-    ): Promise<{ data: any[]; total: number; }> {
+        @Res() res: Response
+    ): Promise<void> {
         try {
-            // this.logger.log(`Finding all entries: ${JSON.stringify(options)}`);
             const [data, total] = await this.service.findAll({
                 limit,
                 page,
@@ -49,84 +45,76 @@ export class BaseController<S extends IBaseService<T>, C, U, T> {
                 order,
                 searchBy
             });
-            return { data, total };
+            res.status(HttpStatus.OK).json({ data, total });
         } catch (error) {
             this.logger.error('Error finding all entries', JSON.stringify(error));
-            throw new HttpException(
-                (error as Error).message || 'Failed to find all entries',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to find all entries' });
         }
     }
-    // findOne(id: number): Promise<T>;
+
     @Get(':id')
-    async findOne(@Param('id') id: String): Promise<T> {
+    async findOne(@Param('id') id: string, @Res() res: Response): Promise<void> {
         try {
             this.logger.log(`Finding entry with id: ${id}`);
-            return await this.service.findOne(id);
+            const entity = await this.service.findOne(id);
+            if (!entity) {
+                this.logger.error(`Entry not found with id: ${id}`);
+                res.status(HttpStatus.NOT_FOUND).json({ message: 'Entry not found' });
+                return;
+            }
+            res.status(HttpStatus.OK).json(entity);
         } catch (error) {
             this.logger.error('Error finding entry', JSON.stringify(error));
-            throw new HttpException(
-                (error as Error).message || 'Failed to find entry',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to find entry' });
+            return ;
         }
     }
-    // // findByUuid(uuid: string): Promise<T>;
-    // @Get('uuid/:uuid')
-    // async findByUuid(uuid: string): Promise<T> {
-    //     try {
-    //         this.logger.log(`Finding entry with uuid: ${uuid}`);
-    //         return await this.service.findByUuid(uuid);
-    //     } catch (error) {
-    //         this.logger.error('Error finding entry', JSON.stringify(error));
-    //         throw new HttpException(
-    //             (error as Error).message || 'Failed to find entry',
-    //             HttpStatus.INTERNAL_SERVER_ERROR,
-    //         );
-    //     }
-    // }
-    // // findByIds(uuid: string[]): Promise<T[]>;
+
     @Post('ids')
-    async findByIds(@Query('ids') uuids): Promise<T | T[]> {
+    async findByIds(@Query('ids') uuids: string, @Res() res: Response): Promise<void> {
         try {
+            this.logger.log(`Finding entries with ids: ${uuids}`);
             const arr = uuids.split(',').map(id => id.trim());
             this.logger.log(`Finding entries with ids: ${JSON.stringify(arr)}`);
-            return await this.service.findByIds(arr);
+            const [found] = await this.service.findByIds(arr);
+            res.status(HttpStatus.OK).json({ found });
         } catch (error) {
             this.logger.error('Error finding entries', JSON.stringify(error));
-            throw new HttpException(
-                (error as Error).message || 'Failed to find entries',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to find entries' });
         }
     }
-    // update(uuid: string, updateDto: any): Promise<T>;
+
     @Put(':uuid')
-    async update(@Param('uuid') uuid: string, @Body() updateDto: U, ...extraArgs: any[]): Promise<T> {
+    async update(@Param('uuid') uuid: string, @Body() updateDto: U, @Res() res: Response, ...extraArgs: any[]): Promise<void> {
         try {
             this.logger.log(`Updating entry with uuid: ${uuid}`);
-            return await this.service.update(uuid, updateDto, ...extraArgs);
+            const entity = await this.service.update(uuid, updateDto, ...extraArgs);
+            if (!entity) {
+                this.logger.error(`Entry not found with uuid: ${uuid}`);
+                res.status(HttpStatus.NOT_FOUND).json({ message: 'Entry not found' });
+                return;
+            }
+            res.status(HttpStatus.OK).json(entity);
         } catch (error) {
             this.logger.error('Error updating entry', JSON.stringify(error));
-            throw new HttpException(
-                (error as Error).message || 'Failed to update entry',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to update entry' });
         }
     }
-    // remove(uuid: string): Promise<void>;
+
     @Delete(':uuid')
-    async remove(@Param('uuid') uuid: string): Promise<void> {
+    async remove(@Param('uuid') uuid: string, @Res() res: Response): Promise<void> {
         try {
             this.logger.log(`Deleting entry with uuid: ${uuid}`);
-            await this.service.remove(uuid);
+            const result=await this.service.remove(uuid);
+            if (!result) {
+                this.logger.error(`Entry not found with uuid: ${uuid}`);
+                res.status(HttpStatus.NOT_FOUND).json({ message: 'Entry not found' });
+                return;
+            }
+            res.status(HttpStatus.OK).json({ message: 'Entry deleted successfully' });
         } catch (error) {
             this.logger.error('Error deleting entry', JSON.stringify(error));
-            throw new HttpException(
-                (error as Error).message || 'Failed to delete entry',
-                HttpStatus.INTERNAL_SERVER_ERROR,
-            );
+            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Failed to delete entry' });
         }
     }
 }
